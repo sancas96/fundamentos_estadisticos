@@ -1,0 +1,321 @@
+---
+title: "08-Tarea"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. ENIGH
+
+Para este ejercicio usaremos los datos de la [ENIGH 2014](https://www.inegi.org.mx/programas/enigh/tradicional/2014/). En particular
+las variables alimentos, vestido, vivienda, salud, comunica, educacion y esparci 
+(esparcimiento) que indican el gasto trimestral en cada una de las categorías. 
+
+1. Calcula los deciles de ingreso usando la variable de ingreso corriente (ing_cor).
+
+Debes tomar en cuenta el diseño de la muestra, puedes usar la función
+`survey_quantile()` del paquete `srvyr` o `svyquantile()` del paquete `survey`.
+Reporta las estimaciones y sus errores estándar usando el bootstrap de Rao y Wu.
+
+```{r, message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+
+concentrado_hogar <- read_csv("concentradohogar.csv")
+
+hogar <- concentrado_hogar %>% 
+    select(folioviv, foliohog, est_dis, upm, factor_hog, ing_cor, alimentos, 
+        vestido, vivienda, salud, transporte, comunica, educacion, esparci)
+
+glimpse(hogar)
+
+library(srvyr)
+library(survey)
+
+enigh_design <- hogar %>% 
+    as_survey_design(ids = upm, weights = factor_hog, strata = est_dis)
+
+set.seed(2020)
+
+enigh_boot <- enigh_design %>% 
+    as_survey_rep(type = "subbootstrap", replicates = 500)
+
+enigh_boot %>% 
+    srvyr::summarise(mean_ingcor = survey_mean(ing_cor))
+
+qq <- svyquantile(~ing_cor, enigh_boot, quantiles = seq(0.1, 1, 0.1), interval.type = "quantile")
+qq
+
+```
+
+
+2. Crea una nueva variable que indique el decil de ingreso para cada hogar. 
+Tips: 1) una función que puede resultar útil es `cut2()` (de `Hmisc`), 
+2) si usas el paquete `srvyr` puedes usar `mutate()` sobre
+el objeto `survey` con pesos de replicaciones bootstrap.
+
+```{r}
+library(Hmisc)
+
+hogar$decil<-as.character(cut2(hogar$ing_cor,qq))
+hogar
+```
+
+
+3. Estima para cada decil, el porcentaje del gasto en cada categoría (), reporta el error estándar de las estimaciones, usa el bootstrap de Rao y Wu. 
+
+Tip: 
+- 1) agrega una variable que indica para cada hogar el 
+porcentaje de gasto en cada categoría, 
+
+- 2) si usas srvyr puedes usar la función 
+`group_by()` para estimar la media del porcentaje de gasto por decil.
+
+```{r}
+fun_zero <- function(x){
+  if(x==0){
+    return(.01)
+  }
+  else{
+    return(x)
+  }
+}
+
+den <- sapply((hogar$alimentos + 
+               hogar$vestido + 
+               hogar$vivienda +
+               hogar$salud + 
+               hogar$transporte +
+               hogar$comunica +
+               hogar$educacion + 
+               hogar$esparci)
+            ,fun_zero)
+
+hogar$p_alim <- hogar$alimentos/den
+hogar$p_vestido <- hogar$vestido/den
+hogar$p_vivienda <- hogar$vivienda/den
+hogar$p_salud <- hogar$salud/den
+hogar$p_transporte <- hogar$transporte/den
+hogar$p_comunica <- hogar$comunica/den
+hogar$p_educacion <- hogar$educacion/den
+hogar$p_esparci <- hogar$esparci/den
+
+enigh_design2 <- hogar %>% 
+    as_survey_design(ids = upm, weights = factor_hog, strata = est_dis) 
+
+enigh_boot2 <- enigh_design2 %>% 
+    as_survey_rep(type = "subbootstrap", replicates = 500)
+
+err <- data.frame(enigh_boot2 %>%
+                    srvyr::group_by(decil) %>% 
+                    srvyr::summarise(mean_palim = survey_mean(p_alim),
+                                     mean_pvestido = survey_mean(p_vestido),
+                                     mean_pvivienda = survey_mean(p_vivienda),
+                                     mean_psalud = survey_mean(p_salud),
+                                     mean_ptransporte = survey_mean(p_transporte),
+                                     mean_pcomunica = survey_mean(p_comunica),
+                                     mean_peducacion = survey_mean(p_educacion),
+                                     mean_pesparci = survey_mean(p_esparci)))
+err
+
+```
+
+4. Realiza una gráfica con las estimaciones del paso 3.
+
+```{r}
+library(ggplot2)
+library(patchwork)
+x_ <- c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1)
+err$decil_r <- x_
+
+df <- err %>% select("decil_r", "mean_palim", "mean_palim_se")
+
+g_alim <- ggplot(err %>% select("decil_r", "mean_palim", "mean_palim_se"), 
+            aes(x_, 
+                mean_palim*100, 
+                ymin = mean_palim*100 - mean_palim_se*100, 
+                ymax = mean_palim*100 + mean_palim_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+   xlab("decil") + 
+  ylab("alimentos")
+
+g_vestido <- ggplot(err %>% select("decil_r", "mean_pvestido", "mean_pvestido_se"), 
+            aes(x_, 
+                mean_pvestido*100, 
+                ymin = mean_pvestido*100 - mean_pvestido_se*100, 
+                ymax = mean_pvestido*100 + mean_pvestido_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("vestido")
+
+g_vivienda <- ggplot(err %>% select("decil_r", "mean_pvivienda", "mean_pvivienda_se"), 
+            aes(x_, 
+                mean_pvivienda*100, 
+                ymin = mean_pvivienda*100 - mean_pvivienda_se*100, 
+                ymax = mean_pvivienda*100 + mean_pvivienda_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("vivienda")
+
+
+g_salud <- ggplot(err %>% select("decil_r", "mean_psalud", "mean_psalud_se"), 
+            aes(x_, 
+                mean_psalud*100, 
+                ymin = mean_psalud*100 - mean_psalud_se*100, 
+                ymax = mean_psalud*100 + mean_psalud_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("salud")
+
+g_transporte <- ggplot(err %>% select("decil_r", "mean_ptransporte", "mean_ptransporte_se"), 
+            aes(x_, 
+                mean_ptransporte*100, 
+                ymin = mean_ptransporte*100 - mean_ptransporte_se*100, 
+                ymax = mean_ptransporte*100 + mean_ptransporte_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("transporte")
+
+g_educa <- ggplot(err %>% select("decil_r", "mean_peducacion", "mean_peducacion_se"), 
+            aes(x_, 
+                mean_peducacion*100, 
+                ymin = mean_peducacion*100 - mean_peducacion_se*100, 
+                ymax = mean_peducacion*100 + mean_peducacion_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("educacion")
+
+g_comunica <- ggplot(err %>% select("decil_r", "mean_pcomunica", "mean_pcomunica_se"), 
+            aes(x_, 
+                mean_pcomunica*100, 
+                ymin = mean_pcomunica*100 - mean_pcomunica_se*100, 
+                ymax = mean_pcomunica*100 + mean_pcomunica_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("comunica")
+
+g_esparci <- ggplot(err %>% select("decil_r", "mean_pesparci", "mean_pesparci_se"), 
+            aes(x_, 
+                mean_pesparci*100, 
+                ymin = mean_pesparci*100 - mean_pesparci_se*100, 
+                ymax = mean_pesparci*100 + mean_pesparci_se*100)) +
+  geom_pointrange(width = 0.2, size = 0.3, color="black", fill="red", shape=21) +
+  xlab("decil") + 
+  ylab("esparci")
+
+g_alim + g_vestido + g_vivienda + g_salud + g_transporte + g_educa + g_comunica +g_esparci
+
+```
+
+## 2. Componentes Principales
+
+Los datos _marks_ (Mardia, Kent y Bibby, 1979) contienen los puntajes de 88 
+estudiantes en 5 pruebas: mecánica, vectores, álgebra, análisis y estadística.
+Cada renglón corresponde a la calificación de un estudiante en cada prueba. 
+Para este ejercicio no es necesario que conozcas componentes principales pues
+puedes implementar el bootstrap siguiendo el código propuesto y discutiremos 
+los detalles del análisis en la próxima clase.
+
+```{r leer_marks}
+data(marks, package = "ggm")
+glimpse(marks)
+```
+
+Un análisis de componentes principales proseguiría como sigue:
+
+```{r pc, fig.height=3, fig.width=3}
+pc_marks <- princomp(marks)
+summary(pc_marks)
+loadings(pc_marks)
+plot(pc_marks, type = "lines")
+```
+
+Y graficamos:
+
+```{r}
+biplot(pc_marks)
+```
+
+Los cálculos de un análisis de componentes principales involucran la matriz de 
+covarianzas empírica $G$ (estimaciones _plug-in_)
+
+$$G_{jk} = \frac{1}{88}\sum_{i=1}^88(x_{ij}-\bar{x_j})(x_{ik}-\bar{x_k})$$
+
+para $j,k=1,2,3,4,5$, y donde $\bar{x_j} = \sum_{i=1}^88 x_{ij} / 88$ (la media 
+de la i-ésima columna).
+
+```{r}
+G <- cov(marks) * 87 / 88
+G
+```
+
+Los _pesos_ y las _componentes principales_ no son mas que los eigenvalores y 
+eigenvectores de la matriz de covarianzas $G$, estos se calculan a través de una 
+serie de de manipulaciones algebraicas que requieren cálculos del orden de $p^3$
+(cuando G es una matriz de tamaño p$\times$p).
+
+```{r}
+eigen_G <- eigen(G)
+lambda <- eigen_G$values
+v <- eigen_G$vectors
+lambda
+v
+```
+
+1. Proponemos el siguiente modelo simple para puntajes correlacionados:
+
+$$\textbf{x}_i = Q_i \textbf{v}$$
+
+donde $\textbf{x}_i$ es la tupla de calificaciones del i-ésimo estudiante, 
+$Q_i$ es un número que representa la habilidad del estudiante y $\textbf{v}$ es
+un vector fijo con 5 números que aplica a todos los estudiantes. Si este modelo
+simple fuera cierto, entonces únicamente el $\hat{\lambda}_1$ sería positivo
+y $\textbf{v} = \hat{v}_1$.
+Sea $$\hat{\theta}=\sum_{i=1}^5\hat{\lambda}_i$$
+el modelo propuesto es equivalente a $\hat{\theta}=1$, inculso si el modelo es
+correcto, no esperamos que $\hat{\theta}$ sea exactamente uno pues hay ruido en 
+los datos.
+
+```{r}
+theta_hat <- lambda[1]/sum(lambda)
+theta_hat
+```
+
+El valor de $\hat{\theta}$ mide el porcentaje de la varianza explicada en la 
+primer componente principal, ¿qué tan preciso es  $\hat{\theta}$? La complejidad
+matemática en el cálculo de $\hat{\theta}$ es irrelevante siempre y cuando 
+podamos calcular  $\hat{\theta}^*$ para una muestra bootstrap, en esta caso una
+muestra bootsrtap es una base de datos de 88 $\times$ 5 $\textbf{X}^*$, donde las
+filas $\bf{x_i}^*$ de $\textbf{X}^*$ son una muestra aleatoria de tamaño
+88 de la verdadera matriz de datos.
+
+- Utiliza bootstrap para calcular el error estándar de $\hat{\theta}$.
+
+- Grafica la distribución bootstrap.
+
+```{r}
+
+p_boot <- function(){
+  muestra_boot <- sample_n(marks, size = 88, replace = TRUE)
+  G <- cov(muestra_boot) * 87 / 88 
+  eigen_G <- eigen(G)
+  theta_hat <- eigen_G$values[1] / sum(eigen_G$values)
+}
+
+n <- 500
+
+library(plyr)
+thetas_boot <- rdply(n, p_boot)
+
+ggplot(thetas_boot, aes(x = V1)) +
+  geom_histogram((aes(y = ..density..)), color = "white", fill = "gray", binwidth = 0.015) + 
+  geom_density(color = "blue") +
+  geom_vline(aes(xintercept = mean(V1), color = "red"))
+
+
+
+```
