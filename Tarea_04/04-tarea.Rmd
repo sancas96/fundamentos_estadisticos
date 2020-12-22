@@ -1,0 +1,275 @@
+---
+title: "Tarea-04"
+output:
+  html_document: default
+  pdf_document:
+    latex_engine: xelatex
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+```
+
+## Pruebas visuales y Permutación
+
+#### Pruebas de permutación
+
+1. La tabla de datos *Phillies2009* contiene información de la temporada de 
+baseball 2009 para el equipo de Philadelphia *Phillies*, en este ejercicio
+queremos comparar los strikes (`StrikeOuts`) entre los juegos en casa y de 
+visitante:
+
+a) Realiza un *lineup* donde cada panel muestre un diagrama de caja y brazos para 
+la variable de interés separando los juegos jugados en casa (home) y los juegos 
+jugados fuera (away). ¿Puedes localizar los datos verdaderos entre los nulos?
+
+```{r}
+setwd("~/Maestría Ciencia de datos/Fundamentos estadísticos/Tarea 04")
+
+library(tidyverse)
+library(dplyr)
+library(nullabor)
+library(patchwork)
+
+N_rep <- 100
+
+phillies <- read_csv("Phillies2009.csv")
+
+glimpse(phillies)
+
+perms_Loc <- lineup(null_permute('Location'), phillies, n = 12)  
+decrypt("Iw5d XVqV Hz k2AHqH2z tt")
+
+ggplot(perms_Loc, aes(x = Location, y = StrikeOuts)) +
+  geom_boxplot() +
+  facet_wrap(~.sample)
+
+```
+
+No tenemos evidencia para rechar la hipótesis nula, ya que a simple vista no se puede distinguir
+
+b) Calcula el promedio de strikes por juego en cada grupo (donde grupo se define 
+por Location). 
+
+```{r}
+phillies_Loc <- phillies %>%
+  select(Location, StrikeOuts)
+
+
+medias_Loc <- phillies_Loc %>% 
+  group_by(Location) %>% 
+  summarise(medias = mean(StrikeOuts), .groups = 'drop')
+
+medias_Loc
+```
+
+c) Realiza una prueba de permutación para la diferencia de las medias. Grafica 
+la distribución de referencia y calcula el valor *p* de dos colas.
+
+```{r}
+
+dif_obs <- phillies_Loc %>% 
+  group_by(Location) %>% 
+  summarise(medias = mean(StrikeOuts), .groups = 'drop') %>% 
+  pivot_wider(names_from = Location, values_from = medias) %>% 
+  mutate(dif = Away - Home) %>% 
+  pull(dif)   
+
+dif_obs
+
+```
+
+La diferencia de las medias es 0.358, pero al ser una diferencia de medias, consideramos se trata de una prueba de dos colas, esto es ya que restamos "Home" a "Away" se podría considerear la inversa
+
+```{r}
+
+perms_phillies <- lineup(null_permute('Location'), phillies_Loc, n = 1000)
+
+resumen <- perms_phillies %>% 
+  group_by(Location, .sample) %>% 
+  summarise(media = mean(StrikeOuts), .groups = 'drop') %>% 
+  pivot_wider(names_from = Location, values_from = media) %>% 
+  mutate(dif_Home_Away = Home - Away)
+
+ggplot(resumen, aes(x = dif_Home_Away)) +
+  geom_histogram(binwidth = 0.04) +
+  geom_vline(xintercept = dif_obs, colour = "red") +
+  geom_vline(xintercept = -dif_obs, colour = "red")
+
+```
+
+Al visualizar las 1,000 permutaciones y colocar el dato de la diferencia de las medias podemos observar que no parece ser que sea un valor extremos
+
+```{r}
+
+
+dist_perm <- ecdf(resumen$dif_Home_Away)
+percentil_obs <- dist_perm(dif_obs)
+
+p_valor <- 2 * min(dist_perm(dif_obs), (1 - dist_perm(dif_obs)))
+
+
+```
+
+Tenemos un $p-value = 0.36$ con esto no podemos rechaza la hipótesis nula.
+
+
+```{r}
+
+g_1 <- ggplot(resumen, aes(sample = dif_Home_Away)) + geom_qq(distribution = stats::qunif)  +
+  xlab("f") + ylab("diferencia") + labs(subtitle = "Distribución nula o de referencia") +
+  geom_hline(yintercept = p_valor, colour = "red") +
+  geom_hline(yintercept = -p_valor, colour = "red") +
+  annotate("text", x = 0.3, y = p_valor - 0.08, label = "diferencia observada", colour = "red") +
+  annotate("text", x = 0.3, y = -p_valor - 0.08, label = "diferencia observada", colour = "red")
+
+g_2 <- ggplot(resumen, aes(x = dif_Home_Away)) + 
+  geom_histogram(binwidth = 0.04) +
+  coord_flip() + xlab("") + labs(subtitle = " ") +
+  geom_vline(xintercept = p_valor, colour = "red") +
+  geom_vline(xintercept = -p_valor, colour = "red") +
+  annotate("text", x = p_valor, y = 50, label = percentil_obs,vjust = -0.2, colour = "red") +
+  annotate("text", x = -p_valor, y = 50, label = percentil_obs,vjust = -0.2, colour = "red")
+g_1 + g_2
+
+
+
+```
+
+
+Y vemos que es un valor no extremo en la distribución de referencia que vemos arriba: esta muestra no aporta evidencia para rechazar la hipotesis nula
+
+## Pruebas pareadas
+
+En este ejemplo buscamos comparar la diferencia entre dos medicinas 
+para dormir. 
+  - ID es el identificador de paciente, y medicina_1 y medicina_2 son las
+  horas extras de sueño vs. no usar medicina.  
+  - Examina los datos.  
+
+
+```{r}
+
+dormir <- sleep %>% 
+  pivot_wider(names_from = group, 
+              names_prefix = "medicina_",
+              values_from = extra)
+
+dormir
+
+```
+
+La pregunta de interés es si una medicina es mejor que otra para prolongar el 
+sueño. Nótese que en este caso, no tenemos grupos, sino mediciones repetidas.
+
+- Escribe la hipótesis nula.
+
+$$H_0: \mu_1 = \mu_2$$
+
+Donde la hipótesis nula nos dice que las medias de ambas medicinas tienen el mismo efecto, 
+esto ya que si rechazamos la hipótesis nula implicaría que una de las dos es mayor 
+a la otra y por ende diferente.
+
+- Nuestra estadśtica de interés es media de las diferencias entre las medicinas.
+
+Calcula la diferencia observada.
+
+```{r}
+
+summary(dormir)
+
+dif_obs_dormir <- mean(dormir$medicina_2) - mean(dormir$medicina_1)
+
+```
+
+- Hay variación entre los pacientes. ¿Tenemos evidencia para rechazar que son 
+iguales? ¿Cómo hacemos nuestra distribución de referencia?
+
+```{r}
+
+perms_dormir <- lineup(null_permute('group'), sleep, n = 1000)
+
+glimpse(perms_dormir)
+
+resumen <-  perms_dormir %>% 
+  group_by(.sample, group) %>% 
+  summarise(medias = mean(extra), .groups = 'drop') %>% 
+  pivot_wider(names_from = group, names_prefix = 'medicina_', values_from = medias) %>% 
+  mutate(diferencias = medicina_2 - medicina_1)
+
+ggplot(resumen, aes(x = diferencias)) +
+  geom_histogram(binwidth = 0.1) 
+
+
+``` 
+
+Podemos ver que la diferencia de las medias parece ser un dato extremo pero no podemos decir que no podemos rechazar la hipótesis nula de la diferencia de los medicamentos
+
+- Haz una gráfica de la distribución de referencia y grafica encima el valor 
+observado en los datos originales.
+
+```{r}
+
+ggplot(resumen, aes(x = diferencias)) +
+  geom_histogram(binwidth = 0.1) +
+  geom_vline(xintercept = dif_obs_dormir, color = 'red')
+
+``` 
+
+
+- Calcula el valor p (justifica porque a una o dos colas).
+```{r}
+
+dist_perm <- ecdf(resumen$diferencias)
+percentil_obs <- dist_perm(dif_obs_dormir)
+
+p_valor <- 2 * min(dist_perm(dif_obs_dormir), (1 - dist_perm(dif_obs_dormir)))
+
+p_valor
+
+```
+
+Con el $p-value = 0.082$ no volvemos a ver un valor extremo
+
+
+## Valores-*p*
+
+Cuando usamos simulación para pruebas de permutación, el valor-*p* de una cola
+se puede calcular como 
+
+$$\hat{P}=(X+1)/(N+1)$$
+
+donde $X$ es el número de estadísticas de prueba remuestreadas que son al menos
+tan extremas como la observada. Supongamos que el verdadero valor *p* (si 
+pudiéramos hacer todas las permutaciones de manera exhaustiva) es $p$   
+
+- ¿Cuál es la varianza de $\hat{P}$?
+
+Por fórmula tenemos que: 
+$$Var(\hat{P}) = \frac{\hat{P}(1-\hat{P})}{N} $$
+```{r}
+varianza_p = p_valor * (1 - p_valor) /nrow(dormir)
+
+varianza_p
+
+```
+
+- ¿Cuál es la varianza de $\hat{P_2}$ para la prueba de dos lados? (suponiendo
+que $p$ no es cercano a $0.5$, donde $p$ es el verdadero valor *p* para la 
+prueba de una cola).
+
+Para la prueba de dos colas aplicando la formula tenemos que 
+
+$$Var(\hat{P}_2) = var(2\hat{P})$$
+$$ = 4Var(\hat{P})$$
+$$ = 4Var(\frac{X+1}{N+1})$$
+$$ = \frac{4}{(N+1)^2}Var(X)$$
+$$ = \frac{4N\hat{P}(1-\hat{P})}{(N+1)^2}$$
+Aplicando esta fórmula tenemos que:
+```{r}
+N <- nrow(dormir)
+varianza_p_2 = 4 * N * p_valor * (1 - p_valor) /(N+1)^2
+
+varianza_p_2
+```
