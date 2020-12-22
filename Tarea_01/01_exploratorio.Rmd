@@ -1,0 +1,186 @@
+---
+title: "01_exploratorio"
+author: "Ita Santiago"
+date: "15/8/2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+
+## Propinas
+
+Los siguientes datos fueron registrados en un restaurante durante cuatro días consecutivos:
+
+```{r cars}
+library(tidyverse)
+library(patchwork)
+
+## Lee los datos
+tips <- read_csv("tips.csv")
+glimpse(tips)
+
+## Recodificar nombres y niveles
+propinas <- tips %>% 
+  rename(cuenta_total = total_bill, 
+         propina = tip, sexo = sex, 
+         fumador = smoker,
+         dia = day, momento = time, 
+         num_personas = size) %>% 
+  mutate(sexo = recode(sexo, Female = "Mujer", Male = "Hombre"), 
+         fumador = recode(fumador, No = "No", Si = "Si"),
+         dia = recode(dia, Sun = "Dom", Sat = "Sab", Thur = "Jue", Fri = "Vie"),
+         momento = recode(momento, Dinner = "Cena", Lunch = "Comida")) %>% 
+  select(-sexo) %>% 
+  mutate(dia  = fct_relevel(dia, c("Jue", "Vie", "Sab", "Dom")))
+propinas
+```
+
+### 1. Calcula percentiles de la variable propina junto con mínimo y máxio
+
+```{r}
+
+quantile(propinas$propina)
+
+```
+### 2. Haz una gráfica de cuantiles de la variable propina
+
+```{r}
+
+propinas <- propinas %>% 
+  mutate(orden_propina = rank(propina, ties.method = "first"), 
+         f = orden_propina / n()) 
+
+g_orden <- ggplot(propinas, aes(y = propina, x = orden_propina)) +
+  geom_point(colour = "red", alpha = 0.5) +
+  labs(subtitle = "Propinas")
+g_cuantiles <- ggplot(propinas, aes(y = propina, x = f)) + 
+  geom_point(colour = "red", alpha = 0.5) +
+  geom_line(alpha = 0.5) +
+  labs(subtitle = "")
+g_orden + g_cuantiles
+
+```
+### 3. Haz un histograma de la variable propinas
+
+Ajusta distintos anchos de banda
+```{r}
+
+ggplot(propinas, aes(x = propina)) + 
+  geom_histogram(binwidth = 0.5)
+
+ggplot(propinas, aes(x = propina)) + 
+  geom_histogram(binwidth = 0.25)
+
+ggplot(propinas, aes(x = propina)) + 
+  geom_histogram(binwidth = 0.15)
+
+```
+
+### 4. Haz una gráfica de cuenta total contra propina
+
+```{r}
+
+ggplot(propinas, aes(x= cuenta_total, y = propina)) + 
+  geom_point()
+
+```
+
+### 5. Calcula propina en porcentaje de la cuenta total
+
+calcula algunos cuantiles de propina en porcentaje
+
+```{r}
+
+propinas <- propinas %>% 
+  mutate(pct_propina = 100 * propina / cuenta_total)
+
+quantile(propinas$pct_propina)
+
+```
+
+### 6. Haz un histograma de la propina en porcentaje. 
+
+Prueba con distintos anchos de banda. 
+
+```{r}
+
+ggplot(propinas, aes(x = pct_propina)) + 
+  geom_histogram(binwidth = 0.25)
+
+ggplot(propinas, aes(x = pct_propina)) + 
+  geom_histogram(binwidth = 0.5)
+
+```
+
+### 7. Describe la distribución de propina en pct. 
+
+¿Hay datos atípicos?
+
+
+```{r}
+ggplot(propinas, aes(x = pct_propina)) +
+  geom_density() 
+
+```
+Podemos observar que la curva está sesgada hacia la izquierda, después del 25%, podemos inferir que estos serían los porcentajes de propina altos.
+
+### 8. Filtra los casos con porcentaje de propina muy altos. 
+
+¿Qué tipos de cuentas son? ¿Son cuentas grandes o chicas?
+
+```{r}
+
+head(arrange(propinas, desc(pct_propina)))
+
+propinas %>%
+  filter(pct_propina > 25)
+
+```
+
+Se puede observar que en realidad no fueron cuentas grandes y la mayoría son cuentas en la "cena" y de los fumadores
+
+### 9. Haz una diagrama de caja y brazos para propina en dolares dependiendo del momento (comida o cena)
+
+¿Cuál parece más grande? ¿Por qué? Haz otras gráficas si es necesario.
+
+```{r}
+ggplot(propinas, aes(x = propina, y = momento)) +
+  geom_boxplot() +
+  coord_flip()
+
+```
+El diagrama de caja de la cena es más grande, esto se debe a que las propinas de la cena están más dispersos a la mediana de las propinas de la cena. Incluso se puede ver que tiene más datos atípicos.
+
+```{r}
+ggplot(propinas, aes(x = cuenta_total, y = propina, group = momento)) + 
+  geom_point(aes(color = momento), size = 1.5)
+```
+
+En la gráfica anterior se puede observar que hay más propinas asignadas a las cuentas totales, aunque también podemos ver que son datos más dispersos.
+
+A continuación se graficarán las densidades de las agrupaciones de "Cena" y "Comida".
+
+```{r}
+
+cena <- propinas %>%
+  filter(momento == 'Cena')
+
+comida <- propinas %>%
+  filter(momento == 'Comida')
+
+g_cena <- ggplot(cena, aes(x = propina)) +
+  geom_density() +
+  ggtitle("Cena")
+
+g_comida <- ggplot(comida, aes(x = propina)) +
+  geom_density() +
+  ggtitle("Comida")
+
+g_cena + g_comida
+
+```
+
+Se puede observar que la curva que describe la distribución de "cena" es más ancha que la de comida, lo cual nos confirma que los datos están más "dispersos"
