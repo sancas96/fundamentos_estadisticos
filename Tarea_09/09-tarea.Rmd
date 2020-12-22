@@ -1,0 +1,266 @@
+---
+title: 'Tarea 9'
+author: Ita Santiago
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(tidyverse)
+library(nullabor)
+set.seed(654)
+```
+**Máxima verosimilitud**
+
+# Ejercicio 1 
+(Chihara, cap 6) En un comedor se recolectaron datos (en cierto horario predifinido) acerca del tiempo de espera de los clientes para que fueran atendidos Las mediciones son en minutos, y se midieron 174 clientes
+
+```{r}
+servicio <- read_csv("Service.csv")
+servicio <- servicio %>% rename(id = ID, tiempo = Times)
+glimpse(servicio)
+```
+
+Haz un histograma de los tiempos de servicio
+
+```{r}
+ggplot(servicio, aes(tiempo)) + 
+  geom_histogram(col = "white", bins = 20) +
+  ggtitle('Histograma')
+
+```
+
+Ajusta un modelo exponencial. Estima el parámetro lambda por máxima verosimilitud y calcula la media de tiempo de espera en minutos
+
+*tip: puedes usar MASS::fitdistr*
+```{r}
+mle_estim <- MASS::fitdistr(servicio$tiempo, densfun = "exponential")
+
+lambda <- mle_estim$estimate
+lambda
+
+```
+
+# Ejercicio 2 
+Checa el ajuste del modelo exponencial ¿el ajuste es razonable?
+```{r}
+ggplot(servicio, aes(sample = tiempo)) +
+  geom_qq(distribution = stats::qexp, 
+          dparams = list(rate = lambda )) +
+  geom_abline(colour = "red") 
+```
+
+*¿Cómo es el desajuste?* 
+El modelo no es nada bueno.
+
+# Ejercicio 3
+Ajusta una distribución gamma a estos datos usando máxima verosimlitud.
+
+Sabemos que la exponencial es un caso particular de la gamma.
+
+```{r}
+mle_estim_gam <- MASS::fitdistr(servicio$tiempo, densfun = "gamma")
+lambda <- mle_estim_gam$estimate
+
+```
+
+#¿Cuáles son tus estimadores de máxima verosimilitud=
+```{r}
+lambda
+```
+
+# Ejercicio 4
+Checa el ajuste del modelo gamma ¿el ajuste es razonable?
+```{r}
+ggplot(servicio, aes(sample = tiempo)) +
+  geom_qq(distribution = stats::qgamma, 
+          dparams = list(rate = lambda["rate"],
+                         shape= lambda["shape"])) +
+  geom_abline(colour = "red") 
+```
+
+*¿Cómo se ve el ajuste en este caso?*
+Con el qq_plot aquí se observa que el ajuste es adecuado.
+
+# Ejercicio 5
+Haz una prueba visual para confirmar que la variación que es consistente con los datos que la variación que observamos en la gráfica anterior se debe a variación muestral.
+
+```{r}
+servicio_lineup <- lineup(null_dist("tiempo", dist = "gamma"), servicio,n = 20)
+
+ggplot(servicio_lineup, aes(sample = tiempo)) +
+  geom_qq(distribution = stats::qgamma, dparams = list(rate = lambda["rate"], shape= lambda["shape"])) +
+  geom_abline(colour = "red") + facet_wrap(~.sample,nrow = 4)
+
+```
+
+No logro distinguir cuales serían los datos reales, por lo tanto no hay evidencia en contra de la hipótesis nula sobre que la distribución sea gamma.
+
+# Ejericio 6
+
+Haz una gráfica del histograma con la densidad estimada sobrepuesta
+
+```{r}
+
+g_shape <- mle_estim_gam[["estimate"]][["shape"]]
+g_scale <- 1/mle_estim_gam[["estimate"]][["rate"]]
+
+ggplot(servicio,aes(tiempo)) +
+  geom_histogram(aes(y = ..density..),color="white", bins = 20) +
+  stat_function(fun=dgamma,args=list(shape=g_shape, scale=g_scale), col = "blue")
+```
+
+Los tiempos de servicio se distribuyen de manera muy similar a una distribución gamma. 
+    
+# Bootstrap paramétrico
+El coeficiente de variación (o desviación estándar relativa) se
+define como cv = sigma/mu
+El estimador de máxima verosimilitud del coeficiente de variación
+es el cociente de los estimadores de máxima verosimilitud de la 
+desviación estándar y la media
+    
+1. Copia el código de clase para simular datos de una normal y estimar
+con máxima verosimilitud la desviación estándar y la media.
+
+```{r}
+set.seed(41852)
+muestra <- rnorm(150, mean = 1, sd = 2)
+crear_log_p <- function(x){
+  log_p <- function(pars){
+    media = pars[1]
+    desv_est = pars[2]
+    # ve la ecuación del ejercicio anterior
+    z <- (x - media) / desv_est
+    log_verosim <- -(log(desv_est) +  0.5 * mean(z^2))
+    log_verosim
+  }  
+  log_p
+}
+log_p <- crear_log_p(muestra)
+```
+
+2. Calcula el estimador de máxima verosimilitud del coeficiente de 
+variación
+
+```{r}
+res <- optim(c(0, 0.5), log_p, control = list(fnscale = -1, maxit = 1000), method = "Nelder-Mead")
+res$convergence
+
+est_mv <- tibble(parametro = c("media", "sigma"), estimador = res$par) %>% 
+  column_to_rownames(var = "parametro")
+est_mv
+
+cv_mle = est_mv[2,1]/est_mv[1,1]
+tibble(cv_MLE = cv_mle)
+```
+
+3. Copia el código de clase para calcular el error estándar de bootstrap
+paramétrico para la media y la desviación estándar.
+
+```{r}
+simular_modelo <- function(n, media, sigma){
+  rnorm(n, media, sigma)
+}
+muestra_bootstrap <- simular_modelo(length(muestra), 
+                                    est_mv["media", "estimador"],
+                                    est_mv["sigma", "estimador"])
+head(muestra_bootstrap) 
+# creamos nueva verosimilitud para muestra bootstrap
+log_p_boot <- crear_log_p(muestra_bootstrap)
+# optimizamos
+res_boot <- optim(c(0, 0.5), log_p_boot, 
+  control = list(fnscale = -1, maxit = 1000), method = "Nelder-Mead")
+res_boot$convergence
+est_mv_boot <- tibble(parametro = c("media", "sigma"), estimador = res_boot$par) %>% 
+  column_to_rownames(var = "parametro")
+est_mv_boot
+rep_boot <- function(rep, crear_log_p, est_mv, n){
+  muestra_bootstrap <- simular_modelo(length(muestra), 
+                               est_mv["media", "estimador"], 
+                               est_mv["sigma", "estimador"])
+  log_p_boot <- crear_log_p(muestra_bootstrap)
+  # optimizamos
+  res_boot <- optim(c(0, 0.5), log_p_boot, 
+    control = list(fnscale = -1, maxit = 1000), method = "Nelder-Mead")
+  try(if(res_boot$convergence != 0) stop("No se alcanzó convergencia."))
+  tibble(parametro = c("media", "sigma"), estimador_boot = res_boot$par) 
+}
+reps_boot <- map_dfr(1:5000, ~ rep_boot(.x, crear_log_p, est_mv, 
+                                        n = length(muestra)), rep = ".id") 
+reps_boot
+error_est <- reps_boot %>% group_by(parametro) %>% 
+  summarise(ee_boot = sd(estimador_boot)) 
+error_est
+```
+
+4. Modifica para que en cada muestra bootstrap calcules también el
+coeficiente de variación
+
+
+```{r}
+set.seed(41852)
+muestra <- rnorm(150, mean = 1, sd = 2)
+crear_log_p_2 <- function(x){
+  log_p_2 <- function(pars){
+    media = pars[1]
+    desv_est = pars[2]
+    cf <- desv_est/media
+    # ve la ecuación del ejercicio anterior
+    z <- (x - media) / desv_est
+    log_verosim <- -(log(desv_est) +  0.5 * mean(z^2))
+    log_verosim
+  }  
+  log_p_2
+}
+log_p_2 <- crear_log_p_2(muestra)
+
+res_2 <- optim(c(0, 0.5,2), log_p_2, control = list(fnscale = -1, maxit = 1000), method = "Nelder-Mead")
+res_2$convergence
+est_mv_2 <- tibble(parametro = c("media", "sigma","cf"), estimador = res_2$par) %>% 
+  column_to_rownames(var = "parametro")
+est_mv_2
+
+simular_modelo_2 <- function(n, media, sigma){
+  rnorm(n, media, sigma)
+}
+muestra_bootstrap_2 <- simular_modelo_2(length(muestra), 
+                                    est_mv_2["media", "estimador"],
+                                    est_mv_2["sigma", "estimador"])
+head(muestra_bootstrap_2) 
+# creamos nueva verosimilitud para muestra bootstrap
+log_p_boot_2 <- crear_log_p_2(muestra_bootstrap_2)
+# optimizamos
+res_boot_2 <- optim(c(0, 0.5,2), log_p_boot_2, 
+  control = list(fnscale = -1, maxit = 1000), method = "Nelder-Mead")
+res_boot_2$convergence
+est_mv_boot_2 <- tibble(parametro = c("media", "sigma","cf"), estimador = res_boot_2$par) %>% 
+  column_to_rownames(var = "parametro")
+est_mv_boot_2
+rep_boot_2 <- function(rep_2, crear_log_p_2, est_mv_2, n){
+  muestra_bootstrap_2 <- simular_modelo_2(length(muestra), 
+                               est_mv_2["media", "estimador"], 
+                               est_mv_2["sigma", "estimador"])
+  log_p_boot_2 <- crear_log_p_2(muestra_bootstrap_2)
+  # optimizamos
+  res_boot_2 <- optim(c(0, 0.5,2), log_p_boot_2, 
+    control = list(fnscale = -1, maxit = 1000), method = "Nelder-Mead")
+  try(if(res_boot_2$convergence != 0) stop("No se alcanzó convergencia."))
+  tibble(parametro = c("media", "sigma","cf"), estimador_boot_2 = res_boot_2$par) 
+}
+reps_boot_2 <- map_dfr(1:5000, ~ rep_boot_2(.x, crear_log_p_2, est_mv_2, 
+                                        n = length(muestra)), rep_2 = ".id") 
+reps_boot_2
+
+```
+
+5. Reporta el error estándar de las 3 cantidades
+
+```{r}
+error_est_2 <- reps_boot_2 %>% 
+  group_by(parametro) %>%
+  summarise(ee_boot_2 = sd(estimador_boot_2), .groups = 'drop')
+
+error_est_2
+```
