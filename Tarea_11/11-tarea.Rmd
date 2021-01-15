@@ -1,0 +1,90 @@
+---
+title: "11-tarea"
+author: "Ita Santiago"
+date: "19/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 11 **Modelo Beta-Binomial** {-}
+```{r}
+library(tidyverse)
+library(gridExtra)
+```
+
+Una compañía farmacéutica afirma que su nueva medicina incrementa la probabilidad de concebir un niño (sexo masculino), pero aún no publican estudios. Supón que conduces un experimento en el cual 50 parejas se seleccionan de manera aleatoria de la población, toman la medicina y conciben un bebé, nacen 30 niños y 20 niñas.
+
+a. Quieres estimar la probabilidad de concebir un niño para parejas que toman la medicina. ¿Cuál es una inicial apropiada  (experimenta con la distribución Beta para elegir)? No tiene que estar centrada en 0.5 pues esta corresponde a personas que no toman la medicina, y la inicial debe reflejar tu incertidumbre sobre el efecto de la droga. 
+
+Dado que tenemos el número de la muestra $n = 50$, podemos partir definiendo a $m$, la proporción de éxitos (concebir un niño) y establecerla como $m = 0.6$. De esta manera:
+$$ \begin{aligned}
+&a = mn = 30 \\
+&b = (1-m)n = 20
+\end{aligned}$$
+
+Así, podemos definir la distribución a priori de la siguiente manera:
+
+```{r}
+N <-  50
+m <-  0.6
+a <-  m*N
+b <-  (1-m)*N
+
+a_priori <- ggplot(tibble(x = c(0,1)), aes(x)) +
+  stat_function(fun = dbeta, args = list(a,b)) +
+  labs(title = "A priori", x = "", y = "")
+
+a_priori
+```
+
+
+b) Usando tu inicial de a) grafica la posterior y decide si es creíble que las parejas que toman la medicina tienen una probabilidad de $0.5$ de concebir un niño.
+
+Sea $z$ el número de éxitos de la prueba, en esta caso la gráfica posterior es de la siguiente manera:
+
+```{r}
+# Supongamos z
+z = 30
+posteriori <- ggplot(tibble(x = c(0,1)), aes(x)) +
+  stat_function(fun = dbeta, args = list(z + a, N - z + b)) +
+  labs(title = "A posteriori", x = "", y = "")
+
+posteriori
+```
+
+Dado el supuesto de $z=30$, sí es probable que la medicina surja efecto ya la probabilidad de éxito es mayormente mayor a *50%*.
+
+c) Supón que la farmacéutica asevera que la probabilidad de concebir un niño cuando se toma la medicina es cercana al $60\%$ con alta certeza. Representa esta postura con una distribución inicial $Beta(60,40)$. Comparala con la inicial de un escéptico que afirma que la medicina no hace diferencia, representa esta creencia con una inicial $Beta(50,50)$. ¿Cómo se compara la probabilidad posterior de concebir un niño (usando las distintas iniciales)?
+
+En esta caso, las distribuciones a priori se distribuyen de la siguiente manera:
+
+```{r 1_priori_comp}
+priori_comp1 <- ggplot(tibble(x = c(0,1)), aes(x)) +
+  stat_function(fun = dbeta, args = list(60,40)) +
+  labs(title = "Beta(60,40)", x = "",y = "")
+
+priori_comp2 <- ggplot(tibble(x = c(0,1)), aes(x)) +
+  stat_function(fun = dbeta, args = list(50,50)) +
+  labs(title = "Beta(50,50)", x = "", y = "")
+
+grid.arrange(priori_comp1, priori_comp2, nrow = 1)
+```
+
+Usando el mismo número de éxitos del inciso b), tenemos las siguientes distribuciones a posteriori.
+
+```{r 1_post_comp}
+post_comp1 <- ggplot(tibble(x = c(0,1)), aes(x)) +
+  stat_function(fun = dbeta, args = list(z + 60,N - z +40)) +
+  labs(title = "Beta(60,40)", x = "", y = "")
+
+post_comp2 <- ggplot(tibble(x = c(0,1)), aes(x)) +
+  stat_function(fun = dbeta, args = list(z + 50,N - z +50)) +
+  labs(title = "Beta(50,50)", x = "", y = "")
+
+grid.arrange(post_comp1, post_comp2, nrow = 1)
+```
+
+La distribución posterior para un escéptico sigue representando su escepticismo, lo ilustra que las distribuicones a priori impactan las posteriori independientemente de la información disponible.
