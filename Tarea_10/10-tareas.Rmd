@@ -1,0 +1,208 @@
+## 10. Más pruebas de hipótesis {-}
+
++ 1. (Chihara) Los niveles de calcio en adultos saludables se distribuyen de acuerdo
+a una Normal con media 9.5 mg/dl y desviación estándar desconocida. Un médico 
+sospecha que la media de los niveles de calcio para mujeres en su comunidad es 
+distinta. Colecta mediciones de 20 mujeres saludables y encuentra que la media 
+es de 9.2 y la desviación estándar muestral de 1.1. Escribe la hipótesis nula, 
+realiza una prueba de hipótesis e interpreta los resultados.
+
+**Hipótesis nula**
+La media de los niveles de calcio en adultos saludables es igual a la media de los niveles de calcio en mujeres saludables en determinada comunidad, esto es:
+
+<div style="text-align: center">
+
+$H_0: \mu_{adultos} = \overline{X}_{mujeres}$
+
+<div style="text-align: left">
+
+**Hipótesis alternativa**
+La media de los niveles de calcio en adultos saludables es diferente a la media de los niveles de calcio en mujeres saludables en determinada comunidad, esto es:
+
+<div style="text-align: center">
+
+$H_0: \mu_{adultos} \ne \overline{X}_{mujeres}$
+
+<div style="text-align: left">
+
+Suponiendo que la muestra de los niveles de calcio en adultos saludables $X_1, X_2,... X_n$ proviene de una muestra normal $N(\mu, \sigma^2)$ la estadística 
+
+<div style="text-align: center">
+
+$T=\frac{\overline{X}-\mu}{S/\sqrt{n}}$
+
+<div style="text-align: left">
+
+tiene una distribución $T\sim t_{n-1}$
+
+La estadística de prueba
+
+```{r}
+mu <- 9.5
+x_ <- 9.2
+n <- 20
+S <- 1.1
+t <- (x_ - mu)/(S/sqrt(n))
+
+```
+
+con su p-value
+```{r}
+
+p_value <- 2*pt(t,df=n-1)
+p_value
+
+```
+
+Esto es que un $23.75%$ de las muestras de tamaño 20 que provienen de una $N(9.5,\sigma^2)$ nos dan un estadístico $t$ mayor al valor observado si la hipótesis nula es cierta. Con esto no podemos rechazar la hipótesis nula de que las medias de ambos grupos son iguales.
+
+A continuación el intervalo de confianza.
+
+```{r}
+a <- 0.05
+q <- qt(1-a/2,df = n-1) #cuantil 0.95
+c(x_-q*(S/sqrt(n)), x_+q*(S/sqrt(n)))
+
+```
+
++ 2. (Chihara) Los datos [Alelager](https://raw.githubusercontent.com/tereom/fundamentos/render-html/data/Alelager.csv) contienen unformación de calorías y alcohol 
+(por volumen) para una muestra de cervezas ale y lager (por 12 oz). Investiga la 
+hipótesis que las ales tienen más calorías que las lager.
+
+```{r}
+library(readr)
+library(tidyverse)
+
+Alelager <- "https://raw.githubusercontent.com/tereom/fundamentos/render-html/data/Alelager.csv"
+data <- read.csv(url(Alelager))
+sample_n(data, size = 5)
+```
+**Hipótesis nula**
+La media de las calorías en las cervezas Ale es igual a la media de las calorías en las cervezas lager
+$H_0: \mu_{ale} = \mu_{lager}$
+
+**Hipótesis alternativa**
+La media de las calorías en las cervezas Ale es mayor a la media de las calorías en las cervezas lager
+$H_0: \mu_{ale} > \mu_{lager}$
+
+Usamos la prueba de wald que bajo la hipótesis  nula de igualdad de medias tenemos que la estadística es:
+```{r, warning=FALSE}
+n_a <- nrow(data %>% filter(Type == "Ale"))
+
+n_l <- nrow(data %>% filter(Type == "Lager"))
+
+mu <- data %>% 
+        group_by(Type) %>% 
+        summarise_at(vars(Calories), funs(mean(., na.rm = TRUE)))
+
+mu_a <- mu$Calories[1]
+mu_l <- mu$Calories[2]
+
+S <- data %>% 
+        group_by(Type) %>% 
+        summarise_at(vars(Calories), funs(sd(., na.rm = TRUE)))
+
+S_a <- S$Calories[1]
+S_l <- S$Calories[2]
+
+ee <- sqrt(S_a^2 / n_a + S_l^2 / n_l)
+delta <- mu_a - mu_l
+w <- delta / ee
+w
+
+```
+Lo que da un p-value de:
+
+```{r, warning=FALSE}
+p_value <- (1-pnorm(abs(w)))
+p_value 
+
+```
+
+Podemos ver que el p-value es muy pequeño, con esto rechazamos la hipótesis nula de que la media de las calorías de Ale son iguales a las de la Lager.
+
++ 3. (Wasserman) Mendel criaba chícharos de semillas lisas amarillas y de semillas
+corrugadas verdes. Éstas daban lugar a 4 tipos de descendientes: amarrillas lisas, 
+amarillas corrugadas, verdes lisas y verdes corrugadas. El número de cada una
+es multinomial con parámetro $p=(p_1, p_2, p_3, p_4)$. De acuerdo a su teoría de 
+herencia este vector de probabilidades es:
+$$p=(9/16,3/16,3/16,1/16)$$
+A lo largo de $n=556$ experimentos observó $x=(315,101,108,32)$. Utiliza la prueba
+de cociente de verosimilitudes para probar 
+
+<div style="text-align: center">
+
+$H_0:p=p_0$ vs $H_0:p\ne p_0$.
+
+<div style="text-align: left">
+
+```{r, warning=FALSE}
+X <- c(315,101,108,32)
+X_ <- c(315/556,101/556,108/556,32/556)
+p <- c(9/16,3/16,3/16,1/16)
+
+lambda <- log(dmultinom(x = X, prob = X_)) / log(dmultinom(x = X, prob = p))
+lambda
+
+```
+dado que $\lambda$ se distribuye $\chi_3^2$ esto es con 3 grados de libertad, entonces nuestro $p value" sería:
+```{r}
+
+(1-pchisq(2*lambda, df = 3))
+```
+
+lo cual es un p value bastante grande, por lo tanto no tenemos evidencia para rechazar a $p_0$
+
++ 4. (Wasserman) Sea $X=(X_1,\dots,X_n)\sim Uniforme(0,\theta)$ y $T=max(X)$ (el 
+máximo de $X$). Queremos probar:
+
+<div style="text-align: center">
+
+$H_0: \theta=1/2$ contra $H_1:\theta>1/2$
+
+<div style="text-align: left">
+
+En este caso la prueba Wald no es apropiada pues $T$ no converge a la Normal. 
+Supongamos que decidimos probar la hipótesis rechazando $H_0$ si $T>c$.
+
+ * Encuentra la función de poder.  
+ 
+<div style="text-align: center">
+ 
+$\beta(\theta) = P(\theta > c) \\$
+
+$= P(max(X_1, ..., max(Xn))>c) \\$
+
+$= 1 - P(max(X_1, ..., max(Xn))>\frac{1}{2}) \\$
+
+$= 1 - P(X_t < \frac{1}{2})^n \\$
+
+$= 1 - (\frac{c}{\theta})^2$ 
+
+<div style="text-align: left">
+
+para $c \in [0, \frac{1}{2}], \theta_a > \frac{1}{2}$
+ 
+ * ¿Qué valor de $c$ corresponde a un tamaño de prueba $\alpha=0.05$?  
+
+$P(X_t < \frac{1}{2})^n = \frac{c}{\frac{1}{2}}^n$
+
+Por lo tanto  $c = \frac{1}{2}(0.95)^\frac{1}{n}$
+
+ * En una muestra de tamaño $n=20$ con $T=0.48$ ¿cuál es el valor $p$?, ¿qué 
+ concluyes acerca de $H_0$?  
+ 
+```{r}
+
+1-(0.48/0.5)^(20)
+
+```
+
+El p valor es grande, por lo tanto podemos rechazar $H_0$
+ 
+ * En una muestra de tamaño $n=20$ con $T=0.52$ ¿cuál es el valor $p$?, ¿qué 
+ concluyes acerca de $H_0$?
+
+Si $T = 0.52$ entonces $p$ debería ser $0$, es decir, con seguridad el parámetro $\theta$ es mayor a $\frac{1}{2}$
+
+
