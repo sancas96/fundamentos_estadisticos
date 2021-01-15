@@ -1,0 +1,571 @@
+---
+title: "Final"
+date: "07/12/2020"
+author: "Maestría en Ciencia de Datos, ITAM"
+output: 
+  html_document:
+    highlight: tango
+    number_sections: no
+    theme: cerulean
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: '2'
+---
+
+# Equipo:
+
++ HM, LUZ AURORA
++ SC, ITA-ANDEHUI
++ ZC, JOSE LUIS ROBERTO
+
+**"Fundamentos de Estadística con Remuestreo"**
+
+Prof. Teresa Ortiz Mancera
+
+```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Adding packages and libraries:
+library(tidyverse)
+library(ggthemes)
+library(MCMCpack)
+library(magrittr)
+library(ggrepel)
+
+```
+
+## 1. Pruebas de hipótesis
+
+De acuerdo a una encuesta en EUA, 26% de los residentes adultos de Illinois han 
+terminado la preparatoria. Un investigador sospecha que este porcentaje es
+menor en un condado particular del estado. Obtiene una muestra aleatoria de 
+dicho condado y encuentra que 69 de 310 personas en la muestra han completado
+la preparatoria. Estos resultados soportan su hipótesis? (describe tu elección 
+de prueba de hipótesis, valor p y conclusión).
+
+En este caso observamos que tenemos una prueba de hipótesis sobre la
+proporción en una población, de la cual desconocemos si existe normalidad o no
+en los datos. Sabemos que en medias y proporciones muestrales
+existe normalidad asintótica, así qeu una solución la podemos plantearla con
+la Prueba Wald.
+Con base en esto construimos nuestra hipótesis nula y planteamos nuestro
+p_value:
+ 
+ $$H_0:p=0.26$$
+ 
+ contra la hipótesis alternativa:
+ 
+ $$H_A:p\ne0.26$$
+ Calculamos el valor de nuestro estimador $$ \hat{p}$$ y el error estándar:
+ 
+```{r}
+p_hat <- 69/310
+ee <- sqrt(p_hat * (1 - p_hat) / 310)
+ee
+```
+ Nuestro estadístico de prueba W es:
+ 
+```{r}
+w <- (p_hat - 0.26) / ee
+w
+```
+ Calculamos ahora la potencia con nuestro p-value:
+ 
+```{r}
+ val_p <- (1 - pnorm(abs(w)))
+ val_p
+```
+ 
+ Conclusión: considerando el valor de nuestro p_value para nuestro estadístico
+ de prueba, no tenemos evidencia suficiente para rechazar la hipótesis nula en
+ favor de la Alterna. Esto implica que no existe evidencia suficiente que muestre
+ que la porporción de los residentes adultos que han terminado la preparatoria
+ en el condado particular de Illinois es distinto a la proporción del estado.
+
+
+## 2. Relación entre bootstrap e inferencia bayesiana
+
+Consideremos el caso en que tenemos una única observación $x$ proveniente de 
+una distribución normal
+
+$$x \sim N(\theta, 1)$$
+
+Supongamos ahora que elegimos una distribución inicial Normal.
+
+$$\theta \sim N(0, \tau)$$
+
+dando lugar a la distribución posterior (como vimos en la tarea)
+
+$$\theta|x \sim N\bigg(\frac{x}{1 + 1/\tau}, \frac{1}{1+1/\tau}\bigg)$$
+
+Ahora, entre mayor $\tau$, más se concentra la posterior en el estimador de
+máxima verosimilitud $\hat{\theta}=x$. En el límite, cuando $\tau \to \infty$
+obtenemos una inicial no-informativa (constante) y la distribución posterior
+
+$$\theta|x \sim N(x,1)$$
+
+Esta posterior coincide con la distribución de bootstrap paramétrico en que 
+generamos valores $x^*$ de $N(x,1)$, donde $x$ es el estimador de máxima
+verosimilitud.
+
+Lo anterior se cumple debido a que utilizamos un ejemplo Normal pero también 
+se cumple aproximadamente en otros casos, lo que conlleva a una correspondencia
+entre el bootstrap paramétrico y la inferencia bayesiana. En este caso, la
+distribución bootstrap representa (aproximadamente) una distribución posterior 
+no-informartiva del parámetro de interés. Mediante la perturbación en los datos
+el bootstrap aproxima el efecto bayesiano de perturbar los parámetros con la
+ventaja de ser más simple de implementar (en muchos casos).  
+
+*Los detalles se pueden leer en _The Elements of Statistical Learning_ de 
+Hastie y Tibshirani.
+
+Comparemos los métodos en otro problema con el fin de apreciar la similitud en 
+los procedimientos: 
+
+Supongamos $x_1,...,x_n \sim N(0, \sigma^2)$, es decir, los datos provienen de 
+una distribución con media cero y varianza desconocida.
+
+En los puntos 2.1 y 2.2 buscamos hacer inferencia del parámetro $\sigma^2$.
+
+2.1 Bootstrap paramétrico.
+
+* Escribe la función de log-verosimilitud y calcula el estimador de máxima 
+verosimilitud para $\sigma^2$.  Supongamos que observamos los datos 
+`x` (en la carpeta datos), ¿Cuál es tu estimación de la varianza?
+
+La función de verosimilitud es: 
+
+$$
+L(\sigma^2) = p(x_1,..., x_n)
+$$
+$$ =\prod_{i = 1}^n\frac{1}{\sqrt{2\pi\sigma^2}}exp({-\frac{1}{2\sigma^2}x_i^2})$$
+$$=(2\pi\sigma^2)^{-\frac{n}{2}}\prod_{i = 1}^n exp({-\frac{1}{2\sigma^2}x_i^2})$$
+Calculando la log verosimilitud:
+$$l(\sigma^2) = -\frac{n}{2}\text{log}(2\pi\sigma^2) + \sum_{i = 1}^n\left(-\frac{1}{2\sigma^2}x_i^2\right)$$
+$$= -\frac{n}{2}\text{log}(2\pi\sigma^2)-\frac{1}{2\sigma^2}\sum_{i = 1}^nx_i^2$$
+Igualando a cero y despejando $\sigma^2$ podemos obtener que 
+el estimador de máxima verosimilitud es: 
+$$\sigma^2=\frac{1}{n}\sum_{i=1}^nx_{i}^2$$
+Ocupando los datos
+
+```{r}
+x <- get(load('x.RData'))
+
+var(x) # varianza
+
+s_hat <- (1/(length(x)))*sum(x**2) # el estimador
+s_hat
+
+```
+
+* Aproxima el error estándar de la estimación usando __bootstrap paramétrico__ y 
+realiza un histograma de las replicaciones bootstrap.
+
+```{r, message=FALSE, warning=FALSE}
+
+n <- 1000
+
+#función para simular bootstrap
+s_boots <- function(n, s){
+  x_b <- rnorm(n, 0, sqrt(s))
+  sigma_boot <- (1/(n))*sum(x_b**2) 
+  return(sigma_boot)
+}
+
+
+set.seed(2020)
+s_boot <- map_dbl(1:1000, ~s_boots(n, s_hat))
+
+ee_s_hat <- sd(s_boot) 
+ee_s_hat #error estandar
+
+qplot(s_boot) + 
+  geom_histogram(colour='steelblue', fill= 'gray') + 
+  geom_vline(xintercept = s_hat, color = 'red') +
+  theme_igray()
+
+```
+
+2.2 Análisis bayesiano
+
+* Continuamos con el problema de hacer inferencia de $\sigma^2$. Comienza 
+especificando una inicial Gamma Inversa, justifica tu elección de los parámetros 
+de la distribución inicial y grafica la función de densidad.
+
+En este caso una distribución conveniente para describir nuestro conocimiento 
+inicial es la distribución Gamma Inversa.
+
+La distribución Gamma Inversa es una distribución continua con dos parámetros
+y que toma valores en los positivos. 
+
+Si $x\sim Gamma(\alpha, \beta)$ su función de densidad es:
+$$p(x)=\frac{1}{\beta^{\alpha}\Gamma(\alpha)}x^{\alpha-1}e^{-x/\beta}$$
+donde $x>0$. Para hablar de $y$ como la inversa de $x$:
+
+$$p(y)=\frac{\beta^\alpha}{\Gamma(\alpha)}y^{-\alpha - 1} exp{-\beta/y}$$
+
+con media $\frac{\beta}{\alpha-1}$ y varianza $\frac{\beta^2}{(\alpha-1)^2(\alpha-2)}.$
+
+```{r}
+x_gamma <- rgamma(1000, shape = 5, rate = 1)
+
+x_igamma <- 1 / x_gamma
+x_igamma <- data.frame(x_igamma)
+
+ggplot(x_igamma, aes(x = x_igamma)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.05, 
+                 colour = "steelblue", fill = "gray") + 
+  stat_function(fun = dinvgamma, 
+                args = list(shape = 5, scale = 1), color = "red") +
+  theme_igray()
+
+```
+
+* Calcula analíticamente la distribución posterior.
+
+$$p(\sigma^2) \propto p(x|\mu,\sigma^2)p(\sigma^2)$$
+
+Usando el prior como Gamma inversa con $\alpha,\beta$ de parámetros, la verosimilitud como una normal $N~(\mu,\sigma^2)$ tenemos:
+
+$$p(\sigma^2|x)=\frac{\beta^\alpha}{\Gamma(\alpha)}\frac{1}{(\sigma^2)^{\alpha+1}}exp({-\frac{\beta}{\sigma^2}})\frac{1}{(2\pi\sigma^2)^\frac{N}{2}}exp({-\frac{1}{2\sigma^2}\sum_{j=1}^N(x_{j}-\mu)^2})$$
+
+$$=\frac{\beta^\alpha}{\Gamma(\alpha)}\frac{1}{(\sigma^2)^{\alpha+1}}\frac{1}{(2\pi\sigma^2)^\frac{N}{2}}exp(\frac{-(\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)}{\sigma^2})$$
+
+$$=\frac{\beta^\alpha}{\Gamma(\alpha)(2\pi)^\frac{N}{2}}\frac{1}{(\sigma^2)^{\frac{N}{2}+\alpha+1}}exp(\frac{-(\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)}{\sigma^2})$$
+$$p(\sigma^2|x)\approx GI(\frac{N}{2}+\alpha,\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)$$
+obtenemos que la posterior se distribuye Gamma inversa $\sigma^2|x \sim GI(\frac{N}{2}+\alpha,\beta+\frac{1}{2}\sum_{j=1}^N(x_{j}-\mu)^2)$.
+  
+
+* Realiza un histograma de simulaciones de la distribución posterior y calcula
+el error estándar de la distribución.
+
+```{r,message=FALSE, warning=FALSE}
+set.seed(2020)
+
+mu <- 10
+
+a_pos <- 300+1/2
+b_pos <- (300*mu**2)+1/2*sum(x**2)
+
+x_gamma_pos <- rgamma(length(x), shape = a_pos, rate = b_pos)
+x_igamma_pos <- 1 / x_gamma_pos
+
+s_hat_b <- 1 / x_gamma_pos %>% mean()
+ee_s_hat_b <- 1 / x_igamma_pos %>% sd()
+
+x_igammap_pos <- data.frame(x_igamma_pos)
+
+ggplot(data = x_igammap_pos, aes(x = x_igamma_pos)) +
+  geom_histogram(aes(y = ..density..), binwidth = 5, 
+                 colour = "steelblue", fill = "gray") +
+  stat_function(fun = dinvgamma, 
+                args = list(shape = a_pos, 
+                            scale = b_pos), color = "red") +
+  theme_igray() 
+
+```
+
+
+
+* ¿Cómo se comparan tus resultados con los de bootstrap paramétrico?
+
+```{r}
+s_hat
+s_hat_b
+
+ee_s_hat
+ee_s_hat_b
+```
+Vemos que los errores son menos aplicando el método de inferencia bayesiana
+
+
+2.3 Supongamos que ahora buscamos hacer inferencia del parámetro 
+$\tau=log(\sigma)$, ¿cuál es el estimador de máxima verosimilitud?
+
+$$\sigma^2=\frac{1}{n}\sum_{i=1}^nx_{i}^2$$
+por lo tanto 
+$$log(\sigma^2)=log{\sqrt{\frac{1}{n}\sum_{i=1}^nx_{i}^2}}$$
+
+* Utiliza bootstrap paramétrico para generar un intervalo de confianza del 95%
+para el parámetro $\tau$ y realiza un histograma de las replicaciones 
+bootstrap.
+
+
+```{r}
+n<-1000
+tau_hat <- (1/(length(x)))*sum(x**2)
+
+tau_boots <- function(n, t){
+  x_b <- rnorm(n, 0, sqrt(t))
+  tau_boot <- (1/(length(x)))*sum(x_b**2)
+  tt <- log(sqrt(tau_boot))
+  return(tt)
+}
+
+tau_bp <- map_dbl(1:1000, ~tau_boots(n, tau_hat)) 
+ee_tau_bp <- sqrt(1 / 999 * sum((tau_bp - log(sqrt(tau_hat))) ^ 2)) #error estandar
+ee_tau_bp
+
+```
+
+Ahora calcularemos los intevalos de confianza
+```{r, message=FALSE, warning=FALSE}
+boot_inf <- quantile(tau_bp, 0.025)
+boot_sup <- quantile(tau_bp, 0.975)
+
+boot_inf
+
+boot_sup
+
+ggplot(data=NULL,aes(x=tau_bp)) +
+  geom_histogram(colour = "steelblue", fill = "gray", binwidth = 0.03) +
+  geom_vline(xintercept = boot_inf, color = "red") +
+  geom_vline(xintercept = boot_sup, color = "red") +
+  theme_igray()
+
+
+
+```
+
+
+* Ahora volvamos a inferencia bayesiana, calcula  un intervalo de confianza para $\tau$ y un histograma de la distribución posterior de $\tau$.
+
+```{r}
+tau <-  log(sqrt(1/x_gamma_pos))
+
+tau_b_inf <- quantile(tau, 0.025)
+tau_b_sup <- quantile(tau, 0.975)
+
+tau_dis <- mean(tau)
+ee_tau_dis <- sd(tau)
+
+tau_b_inf
+tau_b_sup
+tau_dis
+ee_tau_dis
+
+```
+
+```{r,message=FALSE, warning=FALSE}
+tau <- data.frame(tau)
+
+ggplot(data = tau, aes(x = tau)) +
+  geom_histogram(colour = "steelblue", fill = "gray",binwidth = 0.01) +
+  geom_vline(xintercept = tau_b_inf, color = "red") +
+  geom_vline(xintercept = tau_b_sup, color = "red") +
+  theme_igray()
+
+```
+
+## 3. Bayesiana y regularización
+
+Lee el ejempo *2.7 Informative prior distribution for cancer rates* del libro
+[Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/BDA3.pdf) (página 46).
+
+En el siguiente ejercicio harás algo similar al ejemplo anterior, en este caso 
+con el modelo Beta-Binomial.
+
+Los datos *pew_research_center_june_elect_wknd_data.dta* tienen información de 
+ecnuestas realizadas durante la campaña presidencial 2008 de EUA.
+
+
+```{r}
+poll_data <- foreign::read.dta("pew_research_center_june_elect_wknd_data.dta")
+poll_data
+```
+
+* Estima el porcentaje de la población de cada estado (excluyendo Alaska, Hawai, 
+y DC)  que se considera *very liberal*, utilizando el estimador de máxima 
+verosimilitud.
+
+  - Grafica en el eje *x* el número de encuestas para cada estado y en el eje *y* 
+  la estimación de máxima verosimilitud. ¿Qué observas?  
+```{r}
+#Hacemos una limpieza y creamos un vector de indicadoras de si es "very liberal" o no
+data<-poll_data%>%
+  dplyr::select(state,ideo)%>%
+  filter(state!="alaska"&state!="hawaii"&state!="washington dc")%>%
+  mutate(vl=ifelse(ideo=="very liberal",1,0))%>%
+  na.omit()
+d_id<-data %>% 
+  dplyr::group_by(state) %>%
+  summarise(count=n()) %>% 
+  mutate(id = row_number())%>%
+  dplyr::select(-count)
+data<-left_join(data,d_id,by="state")
+#Función que recibe los datos con 1 en very liberal y regresa la función de log_verosimilitud (que depende de p)
+verosim_2<-function(x,n){
+ll <- function(prob) sum(dbinom(x=x, size=n, prob=prob, log=T))
+ll <- Vectorize(ll)
+}
+#función que saca el óptimo (ie el estimador de máxima veroslimilitud)
+vero<-list()
+minusll<-list()
+func_emv<-function(i){
+  vero[[i]]<-verosim_2(x=data$vl[data$id==i],n=1)
+  minusll[[i]]<-function(x) -vero[[i]](x)
+  optimize(f=minusll[[i]], interval=c(0, 1))
+  
+}
+#LLenamos un vector con todos los EMV calculados
+EMV<-c()
+for (i in 1:48){
+  EMV[i]<-func_emv(i)$minimum
+}
+```
+
+```{r,message=FALSE}
+#Hacemos una tabla wide para graficar y le pegamos el vector de EMVs
+muestra<-poll_data%>%
+  dplyr::filter(state!="alaska"&state!="hawaii"&state!="washington dc")%>%
+  dplyr::select(state,ideo)%>%
+  na.omit()%>%
+  dplyr::group_by(state,ideo)%>%
+  count()%>%
+  pivot_wider(names_from = ideo, values_from = n)
+muestra[is.na(muestra)]<-0
+muestra<-muestra%>%
+  mutate(total=`very conservative`+`conservative`+`moderate`+`liberal`+`very liberal`+`dk/refused`)%>%
+  cbind(unlist(EMV))%>%
+  rename(EMV=...9)%>%
+  mutate(VL_emv=round(EMV*total))
+```
+
+```{r}
+#Graficamos
+
+muestra <- muestra %>% arrange(total) %>% mutate(st_abb=abbreviate(state))
+
+ggplot(muestra,aes(total,VL_emv)) + 
+  geom_point()+theme(axis.text.x = element_text(angle = 90)) + 
+  geom_text_repel(aes(label=st_abb),colour = "gray50") + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  theme_igray()
+```
+
+Podemos notar que los estados con más encuestas son los que tienen mayor porcentaje de personas que se consideran "very liberal".
+  
+  - Grafica en el eje *x* el porcentaje de votos que obtuvo Obama en la elección
+  para cada estado y en el eje *y* la estimación de máxima verosimilitud. ¿Qué observas? (usa los datos *2008ElectionResult.csv*)
+
+```{r}
+election<-read.csv("2008ElectionResult.csv")
+```
+
+```{r, warning = FALSE, message = FALSE }
+#Calculamos el total de votos
+datos<-election%>%
+  dplyr::select(state,vote_Obama,vote_McCain,vote_Obama_pct,vote_McCain_pct)%>%
+  mutate(total=vote_Obama+vote_McCain)%>%
+  mutate(stateup=toupper(state))
+#Hacemos una función de verosimilitud
+verosimilitud<-function(m,n){
+  function(p){n*log(p)+(m-n)*log(1-p)}
+}
+verosim_ob<-verosimilitud(n=election$vote_Obama,m=election$vote_McCain+election$vote_Obama)
+emv_ob<-list()
+for (i in 1:999) {
+  emv_ob[[i]] <- verosim_ob(i*0.001)
+}
+obama_state<-list()
+emv_st_ob<-c()
+for(i in 1:51){
+obama_state[[i]]<-lapply(emv_ob, function(l) l[[i]])
+emv_st_ob[i]<-which.max(unlist(obama_state[[i]]))/1000
+}
+```
+```{r}
+#Unimos con la base de "very liberal"
+datos$stateup[datos$state=="DISTRICT OF COLUMBIA"]<-"WASHINGTON DC"
+dat_ob<-cbind(datos,emv_st_ob*100)%>%
+  rename(emv=`emv_st_ob * 100`)
+muestra_ob<-muestra%>%
+  mutate(stateup=toupper(state))%>%
+  dplyr::select(stateup,EMV)
+dat_ob<-left_join(muestra_ob,dat_ob,by="stateup")
+```
+
+```{r}
+#Graficamos
+
+ggplot(dat_ob,aes(vote_Obama_pct,emv,colour=total)) + 
+  geom_point() + 
+  geom_text_repel(aes(label=stateup),colour = "gray50") +
+  geom_abline(col="blue")+xlab("Porcentaje de votos de Obama") +
+  ylab("EMV de votos de Obama") + 
+  scale_color_gradient(low="blue", high="red") +
+  theme_igray()
+
+ggplot(dat_ob,aes(vote_Obama_pct,EMV,colour=total)) + 
+  geom_point() + 
+  geom_text_repel(aes(label=stateup),colour = "gray50") + 
+  xlab("Porcentaje de votos de Obama") + 
+  ylab("EMV de 'very liberal'") +
+  scale_color_gradient(low="blue", high="red") +
+  theme_igray()
+```
+Existe más incertidumbre de ideología en los estados con menos votos para Obama, podríamos pensar que, a excepción de un estado, la relación es creciente, es decir que en general los estados con más votos para obama tienen más gente "very liberal".
+
+* Estima el mismo porcentaje usando inferencia bayesiana, en particular
+la familia conjugada binomial-beta. Deberás estimar la proporción de manera 
+independiente para cada estado, sin embargo, utilizarás la misma inicial a lo
+largo de todos.
+  - Para elegir los parámetros $\alpha$, $\beta$ de la incial considera la media
+  y varianza de la distribución predictiva posterior (que en este caso tiene
+  ditsribución [Beta-Binomial](https://en.wikipedia.org/wiki/Beta-binomial_distribution))
+  y empata la media y varianza observadas a sus valores observados para después
+  depejar $\alpha$ y $\beta$ (puedes usar [Wolfram alpha](https://www.wolframalpha.com/) para resolver).  
+  
+Vamos a usar el método de momentos
+
+$$\mu_1=\frac{n\alpha}{\alpha+\beta}$$
+$$\mu_2=\frac{n\alpha\left[n(1+\alpha)+\beta\right]}{(\alpha+\beta)(1+\alpha+\beta)}$$
+
+Y asignando estos a sus estimadores muestrales
+
+$$\hat \mu_1:=m_1=\frac{1}{N}\sum_{i=1}^NX_i$$
+
+$$\hat\mu_2:=m_2=\frac{1}{N}\sum_{i=1}^NX_i^2$$
+Y usando esto para resolver $\alpha$ y $\beta$, tenemos:
+
+$$\hat\alpha=\frac{nm_1-m_2}{n\left(\frac{m_2}{m_1}-m_1-1\right)+m_1}$$
+
+$$\hat\beta=\frac{(n-m_1)(n-\frac{m_2}{m_1})}{n\left(\frac{m_2}{m_1}-m_1-1\right)+m_1}$$
+
+```{r}
+m1<-mean(muestra$`very liberal`)
+muestra<-muestra%>%mutate(sqvl=`very liberal`^2)
+m2<-mean(muestra$sqvl)
+a<-(30731*m1-m2)/(30731*(m2/m1-m1-1)+m1)
+b<-(30731-m1)*(30731-m2/m1)/(30731*(m2/m1-m1-1)+m1)
+```
+
+  - Utiliza la media posterior de cada estado como estimador puntual y repite las
+  gráficas del inciso anterior.
+
+Ya que tenemos $\alpha$ y $\beta$ las usamos dentro de la posterior como $Beta(k+\alpha,n-k+\beta)$. Siendo la media de esta distribución $\frac{k+\alpha}{n+\alpha+\beta}$
+
+```{r}
+#estimamos con la media de la distribución posterior
+muestra<-muestra%>%
+  mutate(est_beta=(`very liberal`+a)/(total+a+b))%>%
+  mutate(est_bvl=round(est_beta*total))
+
+ggplot(muestra,aes(total)) +
+  geom_point(aes(y=est_bvl,colour="EMV posterior")) +
+  geom_point(aes(y=VL_emv,colour="EMV inicial")) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  theme_igray()
+```
+
+Para este caso, observamos que la dispersión del estimador posterior es menor, incluso es más bajo que el estimador de máxima verosimilitud en el ejercicio previo.
+
+**Nota:** Este proceso para obtener los parámetros de la incial es razonable para
+este ejercicio, sin embargo, un modelo jerárquico sería la manera de formalizar 
+este acercamiento y se estudiará en próximas materias.
