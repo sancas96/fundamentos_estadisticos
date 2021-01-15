@@ -1,0 +1,37 @@
+---
+title: "12-tarea"
+author: "Ita Santiago"
+date: "28/11/2020"
+output: html_document
+---
+Supongamos que nos interesa analizar el IQ de una muestra de estudiantes del ITAM y suponemos que el IQ de un estudiante tiene una distribución normal $x \sim N(\theta, \sigma^2)$ **con $\sigma ^ 2$ conocida.** Considera que observamos el IQ de un estudiante $x$. 
+La verosimilitud del modelo es:
+
+$$p(x|\theta)=\frac{1}{\sqrt{2\pi\sigma^2}}exp\left(-\frac{1}{2\sigma^2}(x-\theta)^2\right)$$
+
+Realizaremos un análisis bayesiano por lo que hace falta establer una distribución inicial, elegimos $p(\theta)$ que se distribuya $N(\mu, \tau^2)$ donde elegimos los parámetros $\mu, \tau$ que mejor describan nuestras creencias iniciales, por ejemplo si tengo mucha certeza de que el $IQ$ promedio se ubica en $150$, elegiría $\mu=150$ y una desviación estándar chica por ejemplo 
+$\tau = 5$. Entonces la distribución inicial es:
+
+$$p(\theta)=\frac{1}{\sqrt{2\pi\tau^2}}exp\left(-\frac{1}{2\tau^2}(\theta-\mu)^2\right)$$
+
+Calcula la distribución posterior $p(\theta|x) \propto p(x|\theta)p(\theta)$, usando la inicial y verosimilitud que definimos arriba. Una vez que realices la multiplicación debes identificar el núcleo de una distribución Normal, ¿cuáles son sus parámetros (media y varianza)?
+
+Dado que sabemos que la suma de normales es normal, podemos obtener la distribución fijándonos solo en el exponente.
+
+$$
+\begin{aligned}
+p(\theta|x) & \propto p(x|\theta)p(\theta) \\
+& = \frac{1}{\sqrt{2\pi\sigma^2}}exp\left(-\frac{1}{2\sigma^2}(x-\theta)^2\right) \frac{1}{\sqrt{2\pi\tau^2}}exp\left(-\frac{1}{2\tau^2}(\theta-\mu)^2\right) \\
+& \propto exp\left(-\frac{1}{2\sigma^2}(x-\theta)^2 -\frac{1}{2\tau^2}(\theta-\mu)^2\right) \\
+& = exp\left(\frac{-\tau^2x^2+2\tau^2x\theta-\tau^2\theta^2-\sigma^2\theta^2+2\sigma^2\theta\mu-\sigma^2\mu^2}{2\sigma^2\tau^2} \right)\\
+& = exp \left( -\theta^2\left(\frac{\tau^2+\sigma^2}{2\sigma^2\tau^2}\right) + \theta\left(\frac{2\tau^2x+2\sigma^2\mu}{2\sigma^2\tau^2}\right)-\left(\frac{\tau^2x^2+\sigma^2\mu^2}{2\sigma^2\tau^2} \right) \right) \\
+& = exp \left(-\frac{\theta^2}{2}\left(\frac{1}{\sigma^2}+\frac{1}{\tau^2}\right) + \frac{2\theta}{2}\left(\frac{x}{\sigma^2} + \frac{\mu}{\tau^2}\right) - \frac{1}{2}\left(\frac{x^2}{\sigma^2}+\frac{\mu^2}{\tau^2}\right) \right)\\
+& = exp \left(-\frac{1}{2\left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1}} \left(\theta^2 - 2\theta\left(\frac{x}{\sigma^2} + \frac{\mu}{\tau^2}\right) \left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1} + \left(\frac{x^2}{\sigma^2}+\frac{\mu^2}{\tau^2}\right)\left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1}\right)\right)\\
+& = exp \left(-\frac{1}{2\left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1}} \left(\theta^2 + \left(\frac{x}{\sigma}+\frac{\mu}{\tau}\right)\left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1}\right)^2\right)\\
+\end{aligned}
+$$
+De esta manera tenemos que la distribución posterior se distribuye normal con parámetros:
+
+$$
+p(\theta|x)  \sim N \left( \left(\frac{x}{\sigma}+\frac{\mu}{\tau}\right)\left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1}, \left(\frac{1}{\sigma^2}+\frac{1}{\tau^2} \right)^{-1} \right)
+$$
