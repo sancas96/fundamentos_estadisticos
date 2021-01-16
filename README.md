@@ -6,8 +6,7 @@ Repositorio para guardar las tareas y exámenes del curso de "Fundamentos Estad�
 Notas: [Fundamentos de Estadística con Remuestreo](https://tereom.github.io/fundamentos/)
 
 ## Temario 📖
-**Datos y análisis exploratorio**
-
+**Datos y análisis exploratorio.**
 Referencias: (Cleveland 1994), (Chihara and Hesterberg 2018)
 
 1. Visualización y análisis exploratorio
