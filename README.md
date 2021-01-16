@@ -7,6 +7,7 @@ Notas: [Fundamentos de Estadística con Remuestreo](https://tereom.github.io/fun
 
 ## Temario 📖
 **Datos y análisis exploratorio**
+
 Referencias: (Cleveland 1994), (Chihara and Hesterberg 2018)
 
 1. Visualización y análisis exploratorio
