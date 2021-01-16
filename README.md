@@ -6,21 +6,24 @@ Repositorio para guardar las tareas y exámenes del curso de "Fundamentos Estad�
 Notas: [Fundamentos de Estadística con Remuestreo](https://tereom.github.io/fundamentos/)
 
 ## Temario 📖
-**Datos y análisis exploratorio.**
-Referencias: (Cleveland 1994), (Chihara and Hesterberg 2018)
 
+**Datos y análisis exploratorio.**
+
+Referencias: (Cleveland 1994), (Chihara and Hesterberg 2018).
 1. Visualización y análisis exploratorio
 2. Tipos de datos o estudios
-Muestras diseñadas y muestras naturales
-Experimentos y datos observacionales
-Introducción a Pruebas de Hipótesis
+  - Muestras diseñadas y muestras naturales
+  - Experimentos y datos observacionales
+
+**Introducción a Pruebas de Hipótesis.**
+
 Referencias: (Chihara and Hesterberg 2018)
+3. Introducción a pruebas de hipótesis. Pruebas de permutaciones
+4. Muestras pareadas y otros ejemplos
 
-Introducción a pruebas de hipótesis. Pruebas de permutaciones
-Muestras pareadas y otros ejemplos
-Estimación y distribución de muestreo
+**Estimación y distribución de muestreo.**
+
 Referencias: (Chihara and Hesterberg 2018), (Hesterberg 2015)
-
 Estimadores y su distribución de muestreo
 Repaso de probabilidad y Teorema del límite central
 Introducción a estimación por intervalos
